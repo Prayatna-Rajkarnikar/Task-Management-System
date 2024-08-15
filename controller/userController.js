@@ -33,7 +33,7 @@ export const loginUser = async (req, res) => {
     const { userName, password } = req.body;
 
     const user = await userModel.findOne({ userName });
-    if (!user) return res.status(404).json({ message: "User doesnt exists" });
+    if (!user) return res.status(404).json({ message: "User doesn't exist" });
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword)
@@ -42,8 +42,16 @@ export const loginUser = async (req, res) => {
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
-    res.status(200).json({ message: "Login Successful", token });
+    res.status(200).json({
+      message: "Login Successful",
+      token,
+      user: {
+        id: user._id,
+        username: user.userName,
+      },
+    });
   } catch (error) {
+    console.error("Login Error:", error);
     res.status(500).json({ message: "Login failed" });
   }
 };
