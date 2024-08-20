@@ -6,9 +6,20 @@ export const registerUser = async (req, res) => {
   try {
     const { userName, password } = req.body;
 
-    const existingUser = await userModel.findOne({ userName });
-    if (existingUser)
-      return res.status(400).json({ message: "User already exists." });
+    if (!userName || !password) {
+      return res.status(401).json({ error: "Please fill all the fields" });
+    }
+
+    if (password.length < 6) {
+      return res
+        .status(401)
+        .json({ error: "Password must be at least 6 characters long" });
+    }
+
+    const userNameExist = await userModel.findOne({ userName });
+    if (userNameExist) {
+      return res.status(401).json({ error: "User Name already exists" });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new userModel({
@@ -16,15 +27,9 @@ export const registerUser = async (req, res) => {
       password: hashedPassword,
     });
     await newUser.save();
-    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-    res
-      .status(201)
-      .json({ token, user: { id: newUser._id, username: newUser.userName } });
+    res.status(200).json({ message: "Registered Successfully" });
   } catch (error) {
-    console.error("Registration Error:", error);
-    res.status(500).json({ message: "Failed to register user" });
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
@@ -32,26 +37,46 @@ export const loginUser = async (req, res) => {
   try {
     const { userName, password } = req.body;
 
+    if (!userName || !password) {
+      return res.status(401).json({ error: "Please fill all the fields" });
+    }
+
     const user = await userModel.findOne({ userName });
-    if (!user) return res.status(404).json({ message: "User doesn't exist" });
+    if (!user) {
+      return res.status(404).json({ error: "User Name does not exist" });
+    }
 
     const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword)
-      return res.status(400).json({ message: "Wrong Password" });
+    if (!validPassword) {
+      return res.status(401).json({ error: "Invalid Password" });
+    }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
+    // Generate JWT token
+    const token = jwt.sign(
+      { email: user.email, id: user._id, name: user.name },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    // Set token in cookie
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false,
+      path: "/",
     });
-    res.status(200).json({
-      message: "Login Successful",
-      token,
-      user: {
-        id: user._id,
-        username: user.userName,
-      },
-    });
+
+    res.status(200).json({ message: "Login Successful" });
   } catch (error) {
-    console.error("Login Error:", error);
-    res.status(500).json({ message: "Login failed" });
+    res.status(500).json({ error: "Internal Server Error" });
   }
+};
+
+export const logout = async (req, res) => {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: false,
+    path: "/",
+  });
+
+  res.status(200).json({ message: "Logout successful" });
 };

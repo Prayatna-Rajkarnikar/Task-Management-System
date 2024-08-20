@@ -6,13 +6,21 @@ const taskSchema = new mongoose.Schema(
     description: { type: String },
     status: {
       type: String,
-      enum: ["pending", "in-progress", "completed"], //enum stands for enumerator
+      enum: ["pending", "in-progress", "completed"],
       default: "pending",
     },
-    dueDate: { type: Date, required: true },
+    dueDate: { type: String, required: true },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "UserModel",
+      required: true,
+    },
   },
-  { timestamps: true } //Adds createdAt and updatedAt timestamps
+  { timestamps: true }
 );
+
+// Create a compound index to ensure unique title per user
+taskSchema.index({ title: 1, user: 1 }, { unique: true });
 
 const taskModel = mongoose.model("TaskModel", taskSchema);
 
